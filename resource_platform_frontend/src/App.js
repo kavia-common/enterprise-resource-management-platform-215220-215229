@@ -4,6 +4,7 @@ import './App.css';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { useAuth } from './hooks/useAuth';
 import Login from './pages/Login.jsx';
+import TasksPage from './pages/Tasks.jsx';
 
 // Simple protected route component for React Router v6
 function PrivateRoute({ children }) {
@@ -46,6 +47,7 @@ function TopNav() {
       <div style={{ fontWeight: 700 }}>ERM Platform</div>
       <div className="actions">
         <Link to="/" className="btn ghost">Home</Link>
+        <Link to="/tasks" className="btn ghost">Tasks</Link>
         {isAuthenticated ? (
           <button className="btn secondary" onClick={logout}>Logout</button>
         ) : (
@@ -87,6 +89,14 @@ function AppShell() {
           element={
             <PrivateRoute>
               <Home />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/tasks"
+          element={
+            <PrivateRoute>
+              <TasksPage />
             </PrivateRoute>
           }
         />
