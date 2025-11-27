@@ -1,25 +1,18 @@
 import React, { useState, useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext.jsx";
 
 // PUBLIC_INTERFACE
 export default function Signup() {
-  /** Signup page with client-side validation and API call to backend signup endpoint.
+  /**
+   * Signup page with client-side validation and API call to backend signup endpoint.
    * - Fields: name, email, password, confirm password
    * - Validates non-empty, email format, password confirmation
-   * - On success: stores token and role via AuthContext (if available) and redirects to Dashboard
+   * - On success: attempts to log the user in via AuthContext if available; otherwise stores minimal data
+   *   and redirects to the app root (protected routes will then ask for login if necessary).
    */
   const navigate = useNavigate();
-
-  // If an AuthContext exists in the app, we attempt to use it. Fallback to localStorage.
-  let authCtx = null;
-  try {
-    // Lazy require to avoid breaking if context file path differs; adjust if necessary in integration.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-    const { AuthContext } = require("../context/AuthContext");
-    authCtx = useContext(AuthContext);
-  } catch {
-    // no-op: context may not exist in this template; we fallback to localStorage handling below
-  }
+  const authCtx = useContext(AuthContext);
 
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
   const [errors, setErrors] = useState({});
@@ -65,16 +58,32 @@ export default function Signup() {
       const data = await res.json();
       // Expecting { token, user: { role, ... } }
       const { token, user } = data || {};
-      if (authCtx && authCtx.login) {
-        // If app provides login method in context
-        authCtx.login({ token, user });
+
+      // Try to establish session via AuthContext if available
+      if (authCtx && typeof authCtx.login === "function") {
+        // AuthContext.login expects { username, password } per implementation, but it calls loginApi.
+        // We cannot re-use raw password here safely; instead, navigate to login with a hint.
+        // As a better UX for this template, if token exists we simulate a session by calling logout/login flow:
+        // However, AuthContext.login requires username/password. So fallback: store token minimally.
+        if (token) {
+          // Minimal local storage to keep continuity; AuthContext reads specific keys.
+          localStorage.setItem("erp_auth_token", token);
+          const role = user?.role || "user";
+          localStorage.setItem("erp_auth_role", role);
+        }
       } else {
-        // Fallback: store in localStorage for demo
+        // Fallback: store minimal info (not used by app auth, but kept for future)
         if (token) localStorage.setItem("token", token);
         if (user?.role) localStorage.setItem("role", user.role);
         if (user) localStorage.setItem("user", JSON.stringify(user));
       }
-      navigate("/dashboard");
+
+      // Redirect to login to let the user sign in immediately, or to home if token present
+      if (token) {
+        navigate("/", { replace: true });
+      } else {
+        navigate("/login", { replace: true });
+      }
     } catch (err) {
       setApiError(err.message || "An error occurred");
     } finally {
@@ -107,6 +116,7 @@ export default function Signup() {
               onChange={onChange}
               placeholder="Jane Doe"
               style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+              required
             />
             {errors.name ? <div style={{ color: "#EF4444", marginTop: 6 }}>{errors.name}</div> : null}
           </div>
@@ -121,6 +131,7 @@ export default function Signup() {
               onChange={onChange}
               placeholder="jane@example.com"
               style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+              required
             />
             {errors.email ? <div style={{ color: "#EF4444", marginTop: 6 }}>{errors.email}</div> : null}
           </div>
@@ -135,6 +146,7 @@ export default function Signup() {
               onChange={onChange}
               placeholder="********"
               style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+              required
             />
             {errors.password ? <div style={{ color: "#EF4444", marginTop: 6 }}>{errors.password}</div> : null}
           </div>
@@ -149,6 +161,7 @@ export default function Signup() {
               onChange={onChange}
               placeholder="********"
               style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+              required
             />
             {errors.confirm ? <div style={{ color: "#EF4444", marginTop: 6 }}>{errors.confirm}</div> : null}
           </div>

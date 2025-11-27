@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getApiBaseUrl } from '../api/client';
 
@@ -59,7 +59,7 @@ export default function Login() {
         <h1 id="login-title" className="h1" style={{ marginBottom: 6 }}>Sign in</h1>
         <p className="subtle" style={{ marginTop: 0, marginBottom: 16 }}>Access your resource management dashboard</p>
         <p className="subtle" style={{ marginTop: 0, marginBottom: 16 }}>
-          Don't have an account? <a href="/signup" style={{ color: '#2563EB', textDecoration: 'none' }}>Sign up</a>
+          Don't have an account? <Link to="/signup" style={{ color: '#2563EB', textDecoration: 'none' }}>Sign up</Link>
         </p>
         {error ? (
           <div

@@ -4,6 +4,7 @@ import './App.css';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { useAuth } from './hooks/useAuth';
 import Login from './pages/Login.jsx';
+import Signup from './pages/Signup.jsx';
 import TasksPage from './pages/Tasks.jsx';
 import ResourcesPage from './pages/Resources.jsx';
 import ApprovalsPage from './pages/Approvals.jsx';
@@ -88,7 +89,10 @@ function TopNav() {
         {isAuthenticated ? (
           <button className="btn secondary" onClick={logout}>Logout</button>
         ) : (
-          <Link className="btn" to="/login">Login</Link>
+          <>
+            <Link className="btn ghost" to="/signup">Sign Up</Link>
+            <Link className="btn" to="/login">Login</Link>
+          </>
         )}
       </div>
     </div>
@@ -162,6 +166,7 @@ function AppShell() {
           }
         />
         <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
