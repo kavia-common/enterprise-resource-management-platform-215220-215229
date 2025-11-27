@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext.jsx';
 import { useAuth } from './hooks/useAuth';
 import Login from './pages/Login.jsx';
 import TasksPage from './pages/Tasks.jsx';
+import ResourcesPage from './pages/Resources.jsx';
 
 // Simple protected route component for React Router v6
 function PrivateRoute({ children }) {
@@ -61,6 +62,13 @@ function TopNav() {
         >
           Tasks
         </Link>
+        <Link
+          to="/resources"
+          className="btn ghost"
+          aria-current={location.pathname.startsWith('/resources') ? 'page' : undefined}
+        >
+          Resources
+        </Link>
         {isAuthenticated ? (
           <button className="btn secondary" onClick={logout}>Logout</button>
         ) : (
@@ -110,6 +118,14 @@ function AppShell() {
           element={
             <PrivateRoute>
               <TasksPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/resources"
+          element={
+            <PrivateRoute>
+              <ResourcesPage />
             </PrivateRoute>
           }
         />
