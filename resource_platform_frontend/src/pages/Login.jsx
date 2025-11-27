@@ -58,6 +58,9 @@ export default function Login() {
       <section style={cardStyle} aria-labelledby="login-title">
         <h1 id="login-title" className="h1" style={{ marginBottom: 6 }}>Sign in</h1>
         <p className="subtle" style={{ marginTop: 0, marginBottom: 16 }}>Access your resource management dashboard</p>
+        <p className="subtle" style={{ marginTop: 0, marginBottom: 16 }}>
+          Don't have an account? <a href="/signup" style={{ color: '#2563EB', textDecoration: 'none' }}>Sign up</a>
+        </p>
         {error ? (
           <div
             role="alert"
