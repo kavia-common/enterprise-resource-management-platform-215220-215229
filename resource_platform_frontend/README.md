@@ -11,6 +11,14 @@ This project provides a minimal React template with a clean, modern UI and minim
 
 ## Getting Started
 
+Set the backend API base URL for local development by creating a `.env` file:
+
+```
+REACT_APP_API_BASE=http://localhost:3001
+```
+
+If not provided, the app will fall back to `http://localhost:3001` in development previews.
+
 In the project directory, you can run:
 
 ### `npm start`

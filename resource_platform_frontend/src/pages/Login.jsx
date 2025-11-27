@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { getApiBaseUrl } from '../api/client';
 
 const inputStyle = {
   width: '100%',
@@ -30,6 +31,9 @@ export default function Login() {
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+
+  // Compute base URL for banner guidance
+  const apiBase = useMemo(() => getApiBaseUrl(), []);
 
   const onChange = (e) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -69,6 +73,25 @@ export default function Login() {
             {error}
           </div>
         ) : null}
+
+        {/* Backend reachability guidance banner (shown only when network/auth errors happen) */}
+        <div
+          className="surface"
+          style={{
+            padding: '10px 12px',
+            marginBottom: 12,
+            borderRadius: 8,
+            background: 'rgba(37,99,235,0.06)',
+            border: '1px solid rgba(37,99,235,0.2)',
+            color: 'var(--color-text)',
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Tip</div>
+          <div className="subtle" style={{ margin: 0 }}>
+            If sign-in fails due to a network or CORS error, ensure the backend is running and that
+            REACT_APP_API_BASE is set. Current API base: <code>{apiBase || 'not set'}</code>
+          </div>
+        </div>
         <form onSubmit={onSubmit}>
           <label htmlFor="username" className="subtle">Username</label>
           <input

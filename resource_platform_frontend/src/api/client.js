@@ -6,6 +6,10 @@
 // by reading the current token via a getter function provided by the AuthContext.
 //
 
+/**
+ * PUBLIC_INTERFACE
+ * Get the API base URL using environment variables with sensible fallbacks.
+ */
 // PUBLIC_INTERFACE
 export function getApiBaseUrl() {
   /**
@@ -13,15 +17,17 @@ export function getApiBaseUrl() {
    * Priority:
    * - REACT_APP_API_BASE
    * - REACT_APP_BACKEND_URL
-   * - window.location.origin (same-origin fallback)
+   * - http://localhost:3001 (preview/dev default)
+   * - window.location.origin (same-origin fallback as last resort)
    */
   const envBase =
     process.env.REACT_APP_API_BASE ||
     process.env.REACT_APP_BACKEND_URL ||
-    '';
+    'http://localhost:3001' ||
+    (typeof window !== 'undefined' ? window.location.origin : '');
 
   // Ensure no trailing slash to avoid double slashes with path joins
-  return envBase.replace(/\/+$/, '');
+  return String(envBase || '').replace(/\/+$/, '');
 }
 
 // A module-level getter to retrieve the current auth token from context without causing circular imports.
