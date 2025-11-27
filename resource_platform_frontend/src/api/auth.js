@@ -7,26 +7,26 @@
 import { api } from './client';
 
 // PUBLIC_INTERFACE
-export async function loginApi({ username, password }) {
+export async function loginApi({ username, password, email }) {
   /**
-   * POST /auth/login
-   * Expected backend response example:
-   * { token: "jwt-token", role: "admin" }
+   * POST /api/auth/login
+   * Backend expects { email, password } per OpenAPI. Map username to email for demo UX.
+   * Returns: { token, user }
    */
-  const res = await api.post('/auth/login', { username, password });
+  const payload = { email: email || username, password };
+  const res = await api.post('/api/auth/login', payload);
   return res;
 }
 
 // PUBLIC_INTERFACE
 export async function logoutApi() {
   /**
-   * POST /auth/logout
-   * If backend doesn't require body, just call empty.
-   * We ignore response body. Errors will bubble up.
+   * POST /api/auth/logout
+   * Backend accepts token via Authorization header (client attaches automatically).
    */
   try {
-    await api.post('/auth/logout', {});
-  } catch (e) {
-    // Best-effort logout; not fatal if backend doesn't support logout
+    await api.post('/api/auth/logout', {});
+  } catch (_e) {
+    // non-fatal
   }
 }

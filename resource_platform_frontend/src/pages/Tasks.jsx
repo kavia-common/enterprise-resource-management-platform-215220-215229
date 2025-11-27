@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { listTasks, createTask, updateTask, deleteTask } from '../api/tasks';
 import { useAuth } from '../hooks/useAuth';
 
@@ -12,7 +12,7 @@ const inputBase = {
 function Select({ value, onChange, children, style, ...rest }) {
   return (
     <select
-      value={value || ''}
+      value={value ?? ''}
       onChange={onChange}
       style={{ ...inputBase, ...style }}
       {...rest}
@@ -25,7 +25,7 @@ function Select({ value, onChange, children, style, ...rest }) {
 function TextInput({ value, onChange, style, ...rest }) {
   return (
     <input
-      value={value || ''}
+      value={value ?? ''}
       onChange={onChange}
       style={{ ...inputBase, ...style }}
       {...rest}
@@ -77,11 +77,11 @@ function Modal({ open, title, onClose, children, footer }) {
 // PUBLIC_INTERFACE
 export default function TasksPage() {
   /**
-   * Page to manage tasks: list, filter, create/edit, delete.
-   * Filters:
-   *  - status: open|in_progress|done|all
-   *  - assignee text: client-side text filter on assignee_id field
-   * Uses in-memory backend via /api/tasks endpoints.
+   * Tasks management page: list/filter/create/edit/delete.
+   * - API paths are aligned with backend: /api/tasks
+   * - Filters: status (server) + assignee text (client)
+   * - Error, empty, loading states
+   * - Minimal optimistic updates for better UX
    */
   const { isAuthenticated } = useAuth();
   const [items, setItems] = useState([]);
@@ -104,6 +104,12 @@ export default function TasksPage() {
   });
   const [saving, setSaving] = useState(false);
 
+  // track delete in progress to disable buttons per row
+  const [deletingId, setDeletingId] = useState(null);
+
+  // AbortController for fetchTasks to avoid race conditions on rapid filter changes
+  const fetchAbortRef = useRef(null);
+
   const statusOptions = [
     { value: 'all', label: 'All statuses' },
     { value: 'open', label: 'Open' },
@@ -124,6 +130,13 @@ export default function TasksPage() {
   }, [items, filters]);
 
   const fetchTasks = async () => {
+    // cancel prior pending request
+    if (fetchAbortRef.current) {
+      fetchAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+
     setLoading(true);
     setErr('');
     try {
@@ -134,7 +147,10 @@ export default function TasksPage() {
       });
       setItems(data || []);
     } catch (e) {
-      setErr(e?.message || 'Failed to load tasks');
+      // ignore abort errors
+      if (e?.name !== 'AbortError') {
+        setErr(e?.message || 'Failed to load tasks');
+      }
     } finally {
       setLoading(false);
     }
@@ -172,12 +188,20 @@ export default function TasksPage() {
   }
 
   async function onDelete(taskId) {
-    if (!window.confirm('Delete this task?')) return;
+    if (!window.confirm('Are you sure you want to delete this task? This cannot be undone.')) return;
+
+    // optimistic UI: remove immediately, rollback on failure
+    const prev = items;
+    setDeletingId(taskId);
+    setItems((list) => list.filter((t) => t.id !== taskId));
     try {
       await deleteTask(taskId);
-      setItems((list) => list.filter((t) => t.id !== taskId));
     } catch (e) {
+      // rollback
+      setItems(prev);
       alert(e?.message || 'Delete failed');
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -189,25 +213,66 @@ export default function TasksPage() {
   async function onSubmit(e) {
     e.preventDefault();
     setSaving(true);
+
     try {
       if (editing) {
-        const updated = await updateTask(editing.id, {
-          title: form.title || null,
+        // optimistic update for edit
+        const prev = items;
+        const optimistic = {
+          ...editing,
+          title: form.title,
           description: form.description || null,
           assignee_id: form.assignee_id || null,
-          status: form.status || null,
-          // project_id typically not updated via update endpoint per spec
-        });
-        setItems((list) => list.map((t) => (t.id === updated.id ? updated : t)));
+          status: form.status || 'open',
+          updated_at: new Date().toISOString(),
+        };
+        setItems((list) => list.map((t) => (t.id === editing.id ? optimistic : t)));
+
+        try {
+          const updated = await updateTask(editing.id, {
+            title: form.title || null,
+            description: form.description || null,
+            assignee_id: form.assignee_id || null,
+            status: form.status || null,
+          });
+          setItems((list) => list.map((t) => (t.id === updated.id ? updated : t)));
+        } catch (err) {
+          // rollback
+          setItems(prev);
+          throw err;
+        }
       } else {
-        const created = await createTask({
+        // optimistic create: temporary id
+        const tempId = `tmp_${Date.now()}`;
+        const optimistic = {
+          id: tempId,
           project_id: form.project_id,
           title: form.title,
           description: form.description || null,
           assignee_id: form.assignee_id || null,
           status: form.status || 'open',
-        });
-        setItems((list) => [created, ...list]);
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setItems((list) => [optimistic, ...list]);
+
+        try {
+          const created = await createTask({
+            project_id: form.project_id,
+            title: form.title,
+            description: form.description || null,
+            assignee_id: form.assignee_id || null,
+            status: form.status || 'open',
+          });
+          // replace temp with server one
+          setItems((list) =>
+            list.map((t) => (t.id === tempId ? created : t))
+          );
+        } catch (err) {
+          // remove optimistic item
+          setItems((list) => list.filter((t) => t.id !== tempId));
+          throw err;
+        }
       }
       setModalOpen(false);
     } catch (e2) {
@@ -252,7 +317,9 @@ export default function TasksPage() {
             value={filters.assignee_text}
             onChange={(e) => setFilters((f) => ({ ...f, assignee_text: e.target.value }))}
           />
-          <button className="btn" type="submit">Apply</button>
+          <button className="btn" type="submit" disabled={loading}>
+            {loading ? 'Loading…' : 'Apply'}
+          </button>
         </form>
       </section>
 
@@ -265,6 +332,7 @@ export default function TasksPage() {
             border: '1px solid rgba(239,68,68,0.25)',
             background: 'rgba(239,68,68,0.06)',
             color: 'var(--color-error)',
+            marginBottom: 12,
           }}
         >
           {err}
@@ -280,7 +348,7 @@ export default function TasksPage() {
               <th style={thStyle}>Assignee</th>
               <th style={thStyle}>Status</th>
               <th style={thStyle}>Updated</th>
-              <th style={{ ...thStyle, width: 140 }}>Actions</th>
+              <th style={{ ...thStyle, width: 160 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -290,7 +358,9 @@ export default function TasksPage() {
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan="6" style={{ padding: 14 }} className="subtle">No tasks</td>
+                <td colSpan="6" style={{ padding: 14 }} className="subtle">
+                  No tasks match the current filters. Try adjusting filters or create a new task.
+                </td>
               </tr>
             ) : (
               filtered.map((t) => (
@@ -308,7 +378,15 @@ export default function TasksPage() {
                   <td style={{ ...tdStyle }}>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="btn ghost" onClick={() => openEdit(t)}>Edit</button>
-                      <button className="btn ghost" onClick={() => onDelete(t.id)} aria-label={`Delete ${t.title}`}>Delete</button>
+                      <button
+                        className="btn ghost"
+                        onClick={() => onDelete(t.id)}
+                        aria-label={`Delete ${t.title}`}
+                        disabled={deletingId === t.id}
+                        title={deletingId === t.id ? 'Deleting…' : 'Delete'}
+                      >
+                        {deletingId === t.id ? 'Deleting…' : 'Delete'}
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -360,7 +438,7 @@ export default function TasksPage() {
           <textarea
             id="description"
             name="description"
-            value={form.description || ''}
+            value={form.description ?? ''}
             onChange={onFormChange}
             style={{ ...inputBase, minHeight: 90, resize: 'vertical' }}
             placeholder="Optional description"
@@ -371,7 +449,7 @@ export default function TasksPage() {
             id="assignee_id"
             name="assignee_id"
             placeholder="user-123 (optional)"
-            value={form.assignee_id || ''}
+            value={form.assignee_id ?? ''}
             onChange={onFormChange}
           />
 

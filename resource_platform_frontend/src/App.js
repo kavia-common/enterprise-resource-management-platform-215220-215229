@@ -42,12 +42,25 @@ function Home() {
 
 function TopNav() {
   const { logout, isAuthenticated } = useAuth();
+  const location = useLocation();
   return (
     <div className="topnav">
       <div style={{ fontWeight: 700 }}>ERM Platform</div>
       <div className="actions">
-        <Link to="/" className="btn ghost">Home</Link>
-        <Link to="/tasks" className="btn ghost">Tasks</Link>
+        <Link
+          to="/"
+          className="btn ghost"
+          aria-current={location.pathname === '/' ? 'page' : undefined}
+        >
+          Home
+        </Link>
+        <Link
+          to="/tasks"
+          className="btn ghost"
+          aria-current={location.pathname.startsWith('/tasks') ? 'page' : undefined}
+        >
+          Tasks
+        </Link>
         {isAuthenticated ? (
           <button className="btn secondary" onClick={logout}>Logout</button>
         ) : (
